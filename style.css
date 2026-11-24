@@ -40,21 +40,26 @@ input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:var(--c)}
 @media(max-width:760px){.grid{grid-template-columns:1fr}}
 @media(max-width:520px){body{padding:12px 8px 36px}.container{padding:12px;box-shadow:6px 6px 0 var(--ink)}h1{margin:-12px -12px 14px;font-size:1.55em}.tabs{gap:8px}.tabs button{flex:1 1 125px;min-width:0;height:40px}.hd{align-items:flex-start;flex-wrap:wrap}.hd span{gap:6px;flex-wrap:wrap}.hd button{min-width:0;padding:0 7px;font-size:.72em}.row{gap:8px}.row>label{width:72px}input[type=range]{min-width:120px}}
 
-/* ---- AI tab ---- */
-.row>label.chk{width:auto;display:flex;align-items:center;gap:8px;text-transform:none;font-weight:700}
-#aictx{width:110px}#aicustom{height:auto;min-height:0;resize:vertical}
+/* ---- AI assist ---- */
+.row>label.chk,.aitop>label.chk{width:auto;display:flex;align-items:center;gap:8px;text-transform:none;font-weight:700}
+.aitop>label.chk{font-weight:900;text-transform:uppercase}
+.aitop{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.aistat{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+#aictx{width:110px}#aiextra{width:min(460px,100%)}
 a{color:var(--teal)}
-.aicard{margin:10px 0;padding:12px;background:var(--ink);border:var(--bw) solid var(--line)}
-.aicard[data-state=ready]{border-color:var(--green)}
-.aicard[data-state=loading],.aicard[data-state=busy]{border-color:var(--yellow)}
-.aicard[data-state=error]{border-color:var(--pink)}
-.aihead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.badge{padding:3px 8px;background:var(--muted);color:var(--ink);font-size:.8em;font-weight:900;text-transform:uppercase}
+#aicard{border-color:var(--line)}
+#aicard[data-state=ready]{border-color:var(--green)}
+#aicard[data-state=loading],#aicard[data-state=busy]{border-color:var(--yellow)}
+#aicard[data-state=error]{border-color:var(--pink)}
+.badge{padding:3px 8px;background:var(--muted);color:var(--ink);font-size:.8em;font-weight:900;text-transform:uppercase;white-space:nowrap}
 [data-state=ready] .badge{background:var(--green)}
 [data-state=loading] .badge,[data-state=busy] .badge{background:var(--yellow)}
 [data-state=error] .badge{background:var(--pink)}
-#aititle{flex:1;min-width:140px;word-break:break-all}
+#aititle{flex:1;min-width:120px;word-break:break-all}
 #aitime{min-width:70px;text-align:right;font-weight:900;color:var(--yellow)}
+.ainote{margin:2px 0 6px;color:var(--text)}
+#aimsg{margin:6px 0;line-height:1.45}
+#aidrawer{margin-top:10px;padding-top:10px;border-top:2px dashed var(--muted)}
 .steps{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;padding:0;list-style:none}
 .steps li{padding:4px 10px;border:2px solid var(--line);color:var(--muted);font-weight:700}
 .steps li::before{content:"\25CB  "}
@@ -63,13 +68,13 @@ a{color:var(--teal)}
 .steps li.fail{border-color:var(--pink);color:var(--pink)}.steps li.fail::before{content:"\2715  "}
 @keyframes blink{50%{border-color:var(--ink)}}
 @media(prefers-reduced-motion:reduce){.steps li.current{animation:none}}
-#aimsg{margin:6px 0;line-height:1.45}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;margin:8px 0 0}
 .kv dt{color:var(--muted);font-size:.85em;font-weight:900;text-transform:uppercase}.kv dd{margin:0;word-break:break-word}
 .aidet{margin:8px 0}.aidet summary{cursor:pointer;font-weight:900;text-transform:uppercase}
-#ailog{max-height:160px;margin:6px 0 0;padding:8px;overflow:auto;background:var(--panel);border:2px solid var(--line);color:var(--muted);font:inherit;font-size:.9em;white-space:pre-wrap}
+#ailog{max-height:160px;margin:6px 0 0;padding:8px;overflow:auto;background:var(--ink);border:2px solid var(--line);color:var(--muted);font:inherit;font-size:.9em;white-space:pre-wrap}
 .models{margin:6px 0;padding-left:18px}.models li{margin:4px 0}
 .aihint{margin:4px 0;color:var(--orange);font-weight:700}.aihint:empty{display:none}
-#panel-ai.drag{outline:3px dashed var(--yellow);outline-offset:-6px}
-body[data-tab=ai] #pqlab{opacity:.45}
+#aicard.drag{outline:3px dashed var(--yellow);outline-offset:-6px}
+#aiview button{min-width:70px;height:34px;font-size:.8em;padding:0 8px}
+#aiview button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:520px){.kv{grid-template-columns:1fr}.kv dd{margin-bottom:6px}}

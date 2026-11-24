@@ -44,45 +44,47 @@
   <div class="row"><label for="ps">Strength</label><input type="range" id="ps" min="0" max="100" step="5" value="70"><span class="val" id="psv"></span></div>
   <p class="note"></p>
  </div>
- <div class="ctl" data-t="ai" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai">
-  <div class="row"><label id="aimodel-label">Model</label><div class="seg" role="group" aria-labelledby="aimodel-label"><button id="aiload" style="--b:var(--green)" title="Pick a .gguf model file from your disk (or drop it on this panel)">Load .gguf</button><button id="aireload" style="--b:var(--teal)" disabled>Reload</button><button id="aiunload" style="--b:var(--pink)" disabled title="Release the model from memory">Unload</button></div><input type="file" id="aifl" accept=".gguf" hidden></div>
-  <div class="row"><label for="aieng">Engine</label><select id="aieng" title="Where the AI engine (wllama + llama.cpp) comes from"><option value="local" selected>Bundled (this folder)</option><option value="cdn">CDN (jsDelivr)</option></select><input type="text" id="aiengv" value="4.0.0" size="8" hidden aria-label="wllama version to fetch from the CDN" title="wllama version on npm. The glue and the runtime are fetched from this exact version."></div>
-  <div class="aicard" id="aicard" data-state="idle" role="group" aria-label="AI model status">
-   <div class="aihead"><span class="badge" id="aibadge">Not loaded</span><b id="aititle">No model in memory</b><span id="aitime" aria-hidden="true"></span></div>
-   <ol class="steps" id="aisteps" aria-label="Loading steps"><li>Engine</li><li>Model</li><li>Ready</li></ol>
-   <div id="aimsg" role="status" aria-live="polite" aria-atomic="true"></div>
-   <dl class="kv" id="aikv"></dl>
-   <details class="aidet"><summary>Activity log</summary><pre id="ailog" tabindex="0" aria-label="AI activity log"></pre></details>
-  </div>
-  <details class="aidet" id="aimodels" open><summary>Which model?</summary>
-   <ul class="models">
-    <li><b>LFM2.5-350M Q4_K_M</b>, 229 MB. Suggested first pick: newest, small and quick. Keep Creativity low (about 0.10). <a href="https://huggingface.co/LiquidAI/LFM2.5-350M-GGUF/tree/main" target="_blank" rel="noopener">files</a></li>
-    <li><b>LFM2-350M Q4_K_M</b>, 229 MB. Previous generation, also works. <a href="https://huggingface.co/LiquidAI/LFM2-350M-GGUF/tree/main" target="_blank" rel="noopener">files</a></li>
-    <li><b>Qwen3-0.6B Q4_K_M</b>, 397 MB. Follows instructions more closely, roughly half the speed. <a href="https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/tree/main" target="_blank" rel="noopener">files</a></li>
-    <li><b>SmolLM2-360M-Instruct Q8_0</b>, 386 MB. Fully open fallback. <a href="https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/tree/main" target="_blank" rel="noopener">files</a></li>
-   </ul>
-   <p class="note">Download one file once, then load it from disk. Prefer Q4_K_M; avoid IQ quants (slow in WebAssembly). Memory needed is about the file size plus 300 MB.</p>
-  </details>
-  <div class="row"><label for="aiq">Task</label><select id="aiq"></select></div>
-  <div class="row" id="aicrow" hidden><label for="aicustom">Instruction</label><textarea id="aicustom" rows="2" placeholder="e.g. Rewrite this text in the voice of a 1970s radio announcer"></textarea></div>
-  <div class="row"><label for="aitemp">Creativity</label><input type="range" id="aitemp" min="0" max="150" step="5" value="10"><span class="val" id="aitempv"></span></div>
-  <div class="row"><label for="aimt">Max tokens</label><input type="range" id="aimt" min="32" max="512" step="16" value="192"><span class="val" id="aimtv"></span></div>
-  <div class="row"><label for="aictx">Context</label><select id="aictx"><option>1024</option><option selected>2048</option><option>4096</option></select><label class="chk"><input type="checkbox" id="aigpu"> Try WebGPU</label></div>
-  <p class="aihint" id="aihint" role="status"></p>
-  <div class="row"><button id="airun" style="--b:var(--green)" disabled>Run AI</button><button id="aistop" style="--b:var(--pink)" disabled>Stop</button><span class="note">Runs on demand only. Output streams into the Output panel.</span></div>
-  <p class="note"></p>
- </div>
- <div class="row opts"><label for="seed">Seed</label><input type="text" id="seed" value="1"><button id="rr" style="--b:var(--yellow)" title="New seed. On the AI tab it also re-runs the last AI task">Reroll</button>
-  <label id="pqlab" title="Applies to the local tools, not to AI"><input type="checkbox" id="pq" checked> Protect "quoted text"</label>
+ <div class="row opts"><label for="seed">Seed</label><input type="text" id="seed" value="1"><button id="rr" style="--b:var(--yellow)" title="New seed. With AI assist on and the AI result showing, it also makes a new AI version">Reroll</button>
+  <label id="pqlab" title="Quotes, links, numbers and #tags stay untouched. For AI the result is checked afterwards and you are warned if any changed"><input type="checkbox" id="pq" checked> Protect "quoted text"</label>
   <label><input type="checkbox" id="df"> Show changes</label></div>
 </div>
+
+<section class="panel" id="aicard" data-state="idle" aria-label="AI assist">
+ <div class="aitop"><label class="chk"><input type="checkbox" id="aion"> AI assist</label>
+  <span class="aistat" id="aistat" hidden><span class="badge" id="aibadge">Not loaded</span><b id="aititle">No model in memory</b><span id="aitime" aria-hidden="true"></span></span></div>
+ <div id="aibody" hidden>
+  <div class="row"><button id="airun" style="--b:var(--green)" disabled>Run AI</button><button id="aistop" style="--b:var(--pink)" disabled>Stop</button><button id="aitoggle" style="--b:var(--blue)" aria-expanded="false" aria-controls="aidrawer">Model &amp; settings</button></div>
+  <p class="ainote" id="aiapply"></p>
+  <div id="aimsg" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="aidrawer" hidden>
+   <div class="row"><label id="aimodel-label">Model</label><div class="seg" role="group" aria-labelledby="aimodel-label"><button id="aiload" style="--b:var(--green)" title="Pick a .gguf model file from your disk (or drop it on this panel)">Load .gguf</button><button id="aireload" style="--b:var(--teal)" disabled>Reload</button><button id="aiunload" style="--b:var(--pink)" disabled title="Release the model from memory">Unload</button></div><input type="file" id="aifl" accept=".gguf" hidden></div>
+   <div class="row"><label for="aieng">Engine</label><select id="aieng" title="Where the AI engine (wllama + llama.cpp) comes from"><option value="local" selected>Bundled (this folder)</option><option value="cdn">CDN (jsDelivr)</option></select><input type="text" id="aiengv" value="4.0.0" size="8" hidden aria-label="wllama version to fetch from the CDN" title="wllama version on npm. The glue and the runtime are fetched from this exact version."></div>
+   <ol class="steps" id="aisteps" aria-label="Loading steps"><li>Engine</li><li>Model</li><li>Ready</li></ol>
+   <dl class="kv" id="aikv"></dl>
+   <details class="aidet"><summary>Activity log</summary><pre id="ailog" tabindex="0" aria-label="AI activity log"></pre></details>
+   <details class="aidet" id="aimodels" open><summary>Which model?</summary>
+    <ul class="models">
+     <li><b>LFM2.5-350M Q4_K_M</b>, 229 MB. Suggested first pick: newest, small and quick. <a href="https://huggingface.co/LiquidAI/LFM2.5-350M-GGUF/tree/main" target="_blank" rel="noopener">files</a></li>
+     <li><b>LFM2-350M Q4_K_M</b>, 229 MB. Previous generation, also works. <a href="https://huggingface.co/LiquidAI/LFM2-350M-GGUF/tree/main" target="_blank" rel="noopener">files</a></li>
+     <li><b>Qwen3-0.6B Q4_K_M</b>, 397 MB. Follows instructions more closely, roughly half the speed. <a href="https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/tree/main" target="_blank" rel="noopener">files</a></li>
+     <li><b>SmolLM2-360M-Instruct Q8_0</b>, 386 MB. Fully open fallback. <a href="https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/tree/main" target="_blank" rel="noopener">files</a></li>
+    </ul>
+    <p class="note">Download one file once, then load it from disk. Prefer Q4_K_M; avoid IQ quants (slow in WebAssembly). Memory needed is about the file size plus 300 MB.</p>
+   </details>
+   <div class="row"><label for="aitemp">Creativity</label><input type="range" id="aitemp" min="0" max="150" step="5" value="10"><span class="val" id="aitempv"></span><span class="note">Set to a low suggested value for each task. Small models do best low.</span></div>
+   <div class="row"><label for="aictx">Context</label><select id="aictx"><option>1024</option><option selected>2048</option><option>4096</option></select><label class="chk"><input type="checkbox" id="aigpu"> Try WebGPU</label></div>
+   <div class="row"><label for="aiextra">Also</label><input type="text" id="aiextra" maxlength="200" placeholder="optional extra instruction, e.g. keep it under 3 sentences"></div>
+   <p class="aihint" id="aihint" role="status"></p>
+  </div>
+ </div>
+</section>
 
 <div class="panel" id="pipe"><div class="row"><label>Pipeline</label><div class="chips" id="chips"></div></div>
  <div class="row"><button id="pa" style="--b:var(--green)">Add step</button><button id="pr" style="--b:var(--teal)">Pipeline: OFF</button><button id="pc" style="--b:var(--pink)">Clear</button><select id="pp" aria-label="Pipeline presets"></select></div></div>
 <div class="grid">
  <section><div class="hd"><b>Input</b><span><button id="ld" style="--b:var(--teal)">Load file</button><input type="file" id="fl" accept=".txt,.md,.csv,.log,.srt,.json,.html,text/*" hidden><button id="sm" style="--b:var(--yellow)" title="Replaces the input. Ctrl+Alt+Z (Cmd+Opt+Z) undoes it">New sample</button><button id="cl" style="--b:var(--pink)">Clear</button></span></div>
   <textarea id="in" dir="auto" placeholder="Paste or type your text here..."></textarea></section>
- <section><div class="hd"><b>Output</b><span><button id="up" style="--b:var(--green)" title="Replaces the input. Ctrl+Alt+Z (Cmd+Opt+Z) undoes it">Use as input</button><button id="cp" style="--b:var(--blue)">Copy</button><button id="dl" style="--b:var(--orange)">Save .txt</button></span></div>
+ <section><div class="hd"><b>Output</b><div class="seg" id="aiview" role="group" aria-label="Output version" hidden><button data-v="local" class="on" aria-pressed="true">Local</button><button data-v="ai" aria-pressed="false" disabled>AI</button></div><span><button id="up" style="--b:var(--green)" title="Replaces the input. Ctrl+Alt+Z (Cmd+Opt+Z) undoes it">Use as input</button><button id="cp" style="--b:var(--blue)">Copy</button><button id="dl" style="--b:var(--orange)">Save .txt</button></span></div>
   <div id="out" dir="auto" role="region" aria-label="Output text" tabindex="0"></div></section>
 </div>
 <div id="stat" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -92,6 +94,7 @@
 <script src="engine.js"></script>
 <script src="personalities.js"></script>
 <script src="tools.js"></script>
+<script src="aitasks.js"></script>
 <script src="ui.js"></script>
 <script src="ai.js"></script>
 

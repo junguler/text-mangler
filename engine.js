@@ -13,7 +13,7 @@ function mask(t,q){
  const re=new RegExp('https?:\\/\\/\\S+|www\\.\\S+|[\\w.+-]+@[\\w-]+\\.[\\w.-]+|`[^`]*`|[#@]\\w+|\\b\\d[\\d.,:\\/]*\\d\\b|\\b\\d\\b'+quote,'g');
  const enc=i=>{let s='';do{s=String.fromCharCode(0xE100+i%6000)+s;i=Math.floor(i/6000)}while(i>0);return s};
  const dec=s=>[...s].reduce((a,c)=>a*6000+c.charCodeAt(0)-0xE100,0);
- return{t:t.replace(re,m=>prefix+enc(st.push(m)-1)+'\uE001'),un:s=>s.replace(new RegExp(prefix+'([\uE100-\uF8FF]+)\uE001','g'),(_,n)=>st[dec(n)]??'')}}
+ return{items:st,t:t.replace(re,m=>prefix+enc(st.push(m)-1)+'\uE001'),un:s=>s.replace(new RegExp(prefix+'([\uE100-\uF8FF]+)\uE001','g'),(_,n)=>st[dec(n)]??'')}}
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const wc=s=>(s.match(/\p{L}[\p{L}'’]*/gu)||[]).length;
 const cc=s=>Array.from(s).length;

@@ -2,28 +2,16 @@
    The engine is fetched the first time you load a model, never at page open. Two sources:
    Bundled = wllama.js + wllama.wasm from this folder (wllama-wasm.js is the embedded fallback for file://),
    CDN = the same two pieces from jsDelivr at a pinned wllama version. Change ENGINE.ver to bump the default.
-   State lives in one object (AI); the status card in the AI tab is drawn from it. */
+   State lives in one object (AI); the AI bar under the controls is drawn from it.
+   What the AI is asked to do per tab lives in aitasks.js. */
 const ENGINE={ver:'4.0.0',
  cdnJs:v=>'https://cdn.jsdelivr.net/npm/@wllama/wllama@'+v+'/esm/index.min.js',
  cdnWasm:v=>'https://cdn.jsdelivr.net/npm/@wllama/wllama@'+v+'/esm/wasm/wllama.wasm',
  localWasm:'wllama.wasm'};
 let aiImport=u=>import(u);
-const AIQ={
- fixtypos:'Fix all spelling and grammar mistakes in the text. Keep the original wording, tone, names and line breaks. Do not add new information. Output only the corrected text.',
- formal:'Rewrite the text in a formal, professional tone. Keep the meaning, names, numbers, links and quoted parts unchanged. Output only the rewritten text.',
- casual:'Rewrite the text in a casual, friendly, conversational tone. Keep the meaning and the length roughly the same. Output only the rewritten text.',
- simple:'Rewrite the text in simple, plain language that a 12-year-old can understand. Use short sentences and everyday words. Output only the rewritten text.',
- shorten:'Shorten the text to roughly half its length while keeping every key fact and the tone. Output only the shortened text.',
- pirate:'Rewrite the text as if a pirate from an old sea tale were saying it. Keep the meaning. Output only the rewritten text.',
- custom:''};
-const AIN={fixtypos:'Fix spelling & grammar',formal:'Formal tone',casual:'Casual tone',simple:'Simplify language',shorten:'Shorten by half',pirate:'Pirate voice',custom:'Custom instruction'};
-/* suggested Creativity per task, in slider units (100 = temperature 1.00); small models do best when kept low */
-const AIT={fixtypos:10,formal:15,casual:30,simple:20,shorten:15,pirate:50,custom:30};
 const AISYS='You are a text transformation engine. Follow the user instruction exactly. Output ONLY the transformed text itself, with no explanation, no preamble and no quotation marks around it.';
-const AI={wl:null,info:null,meta:null,file:null,name:'',busy:false,abort:null,state:'idle',mod:null,mods:{},key:'',wasmUrl:'',wasmBlob:'',engDesc:'',ver:'',backend:'',threads:1,last:null,tick:0,t0:0,loadSecs:0};
+const AI={on:false,view:'local',cache:new Map(),tempKey:'',wl:null,info:null,meta:null,file:null,name:'',busy:false,abort:null,state:'idle',mod:null,mods:{},key:'',wasmUrl:'',wasmBlob:'',engDesc:'',ver:'',backend:'',threads:1,last:null,tick:0,t0:0,loadSecs:0};
 
-$('#aiq').innerHTML=Object.keys(AIN).map(k=>`<option value="${k}">${AIN[k]}</option>`).join('');
-$('#aitemp').value=AIT[$('#aiq').value];
 
 const aiMsg=e=>(e&&e.message)||String(e);
 const aiReady=()=>!!(AI.wl&&AI.wl.isModelLoaded());
@@ -43,8 +31,8 @@ function aiSet(state,o={}){
 }
 const aiIdleSt=()=>[AI.mod?'done':'pending','pending','pending'];
 function aiButtons(){const b=AI.busy,r=aiReady();
- $('#aiload').disabled=b;$('#aieng').disabled=b;$('#aiengv').disabled=b;$('#aireload').disabled=b||!AI.file;$('#aiunload').disabled=b||!r;$('#airun').disabled=b||!r;$('#aistop').disabled=!(b&&AI.state==='busy');
- $('#aireload').title=AI.file?'Load '+AI.file.name+' again with the current Context and WebGPU settings':'Nothing to reload yet'}
+ $('#aiload').disabled=b;$('#aieng').disabled=b;$('#aiengv').disabled=b;$('#aireload').disabled=b||!AI.file;$('#aiunload').disabled=b||!r;$('#aitemp').disabled=b;$('#aiextra').disabled=b;$('#aistop').disabled=!(b&&AI.state==='busy');
+ $('#aireload').title=AI.file?'Load '+AI.file.name+' again with the current Context and WebGPU settings':'Nothing to reload yet';aiSync()}
 const aiThreadWhy=()=>window.crossOriginIsolated?'':location.protocol==='file:'
  ?'the page was opened from a file, where browsers disable threads. Host the folder on http(s) (GitHub Pages works) for roughly 3-5x speed'
  :'cross-origin isolation is not active yet (the helper service worker is still starting or is blocked). Reload the page once';
@@ -118,7 +106,7 @@ function aiExplain(e,file){
 async function aiLoad(file){
  if(AI.busy||!file)return;
  if(!/\.gguf$/i.test(file.name)){aiSet(AI.state==='error'?'idle':AI.state,{msg:'"'+file.name+'" is not a .gguf file. Pick a GGUF model file (see Which model? below).'});aiLog('Rejected '+file.name+': not a .gguf file');return}
- AI.busy=true;AI.file=file;aiButtons();$('#aihint').textContent='';
+ AI.busy=true;AI.file=file;aiButtons();$('#aihint').textContent='';aiDrawer(true);
  const had=aiReady(),sel=aiEngSel(),warm=AI.mod&&AI.key===sel.key;let step=1;
  aiClock(true);aiLog('Load requested: '+file.name+' ('+aiMB(file.size)+')');
  try{
@@ -150,7 +138,7 @@ async function aiLoad(file){
   try{if(AI.wl)await AI.wl.exit()}catch(_e){}
   AI.wl=null;AI.info=null;AI.meta=null;
   const secs=aiSecs();aiClock(false,'failed after '+secs.toFixed(1)+' s');aiLog('FAILED at step '+step+': '+aiMsg(e));
-  aiSet('error',{title:'Could not load '+file.name,st:step===1?['fail','pending','pending']:['done','fail','pending'],msg:aiExplain(e,file)+(had?' The model that was loaded before has been unloaded.':'')});
+  aiDrawer(true);aiSet('error',{title:'Could not load '+file.name,st:step===1?['fail','pending','pending']:['done','fail','pending'],msg:aiExplain(e,file)+(had?' The model that was loaded before has been unloaded.':'')});
  }
  AI.busy=false;aiButtons();aiKV();
 }
@@ -166,86 +154,123 @@ async function aiUnload(){
  aiButtons();aiKV();
 }
 
-/* ---- running a task ---- */
+/* ---- running ---- */
 function aiClean(s,input){
  let x=s.trim();
  x=x.replace(/^here(?:'s| is)\b[^\n]{0,80}:[ \t]*\n+/i,'');
  const q=/^(["\u201C])([\s\S]*)(["\u201D])$/.exec(x);if(q&&!/^["\u201C]/.test(input.trim()))x=q[2].trim();
  return x}
-function aiShow(){const o=$('#out');if($('#df').checked&&AI.last){o.innerHTML=renderOut({segs:[[plain,0]]},AI.last.input)}else o.textContent=plain}
-function aiStat(input,extra){return cc(input)+' -> '+cc(plain)+' chars | '+wc(input)+' -> '+wc(plain)+' words | '+extra+readInfo(plain)}
-function aiRefresh(){
- if(AI.busy)return;
- const input=$('#in').value;
- if(!AI.last){plain='';$('#out').textContent='AI output appears here after you press Run AI.';$('#stat').textContent=aiReady()?'AI ready. Pick a task and press Run AI.':'AI: no model loaded yet. Use Load .gguf in the AI panel.';return}
- plain=AI.last.output;aiShow();
- $('#stat').textContent=aiStat(AI.last.input,AI.last.stat)+(AI.last.input!==input?' | Input changed since this output: press Run AI to refresh it':'');
+const aiBusy=()=>AI.busy&&AI.state==='busy';
+const aiPipeOn=()=>typeof pipeOn!=='undefined'&&pipeOn&&PIPE.length>0;
+function aiSpecNow(){const id=SLT(),v=id?LVL[id][+$('#'+id).value]:0,c={tab,tmode,nmode,dir,v,pk:$('#pk').value,text:$('#in').value},sp=aiSpec(c);sp.c=c;return sp}
+const aiKeyOf=sp=>JSON.stringify([sp.id,sp.c.v,sp.c.dir,$('#seed').value,$('#pq').checked,sp.c.text,$('#aitemp').value,$('#aiextra').value.trim(),AI.name]);
+/* called by run() in ui.js: returns the AI text to show instead of the local result, or null */
+function aiOverlay(){
+ if(!AI.on||AI.view!=='ai')return null;
+ const sp=aiSpecNow(),e=sp.ok&&!aiPipeOn()&&AI.cache.get(aiKeyOf(sp));
+ if(!e){AI.view='local';if(AI.state==='ready'&&!AI.busy)$('#aimsg').textContent='Settings changed, so the local result is shown. Press Run AI for an AI version of this setting.';return null}
+ return{text:e.text,info:e.info}}
+/* keeps the bar, the Run button, the Local/AI switch and the "what will AI do" line in step with the controls */
+function aiSync(){
+ $('#aibody').hidden=!AI.on;$('#aistat').hidden=!AI.on;$('#aiview').hidden=!AI.on;
+ if(!AI.on)return;
+ const sp=aiSpecNow(),r=aiReady(),paused=aiPipeOn();
+ if(sp.ok&&sp.tkey!==AI.tempKey&&!AI.busy){AI.tempKey=sp.tkey;$('#aitemp').value=Math.round(sp.temp*20)*5;aiFill()}
+ const hit=sp.ok&&!paused&&AI.cache.has(aiKeyOf(sp));
+ $('#airun').disabled=AI.busy||!r||!sp.ok||paused||!sp.c.text.trim();
+ document.querySelectorAll('#aiview button').forEach(b=>{const isAI=b.dataset.v==='ai',on=(AI.view==='ai')===isAI;b.disabled=isAI&&!hit&&!aiBusy();b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))});
+ $('#aiapply').textContent=paused?'Paused: the Pipeline is ON. AI works on one setting at a time, so turn the pipeline off to use it.'
+  :!sp.ok?'AI here: '+sp.why
+  :!r?'AI will '+sp.what+'. Load a model first (Model & settings). The local result stays live meanwhile.'
+  :'Run AI will '+sp.what+'.'+(hit?' This exact setting already has an AI result: switch with Local / AI above the Output.':'');
 }
 async function aiRun(){
- if(AI.busy)return;
- if(!aiReady()){aiSet(AI.state,{msg:'Load a .gguf model first (Load .gguf above).'});return}
- const input=$('#in').value,t=input.trim();
- if(!t){aiSet('ready',{msg:'Input is empty. Paste or type some text first.'});return}
- const task=$('#aiq').value,instr=task==='custom'?($('#aicustom').value.trim()||'Rewrite the text.'):AIQ[task];
- const seed=hash($('#seed').value+task)%2147483647,temp=+$('#aitemp').value/100,ctx=AI.info.n_ctx,full=instr+'\n\nText:\n'+t;
- let pt,how='counted';
- try{const tk=await AI.wl.tokenize(AISYS+'\n'+full);if(!Array.isArray(tk))throw 0;pt=tk.length+24}catch(_e){pt=Math.ceil((AISYS.length+full.length)/3.5)+24;how='estimated'}
- let maxTok=+$('#aimt').value;
- if(pt>ctx-32){aiSet('ready',{msg:'Input is too long for the context: about '+pt+' tokens ('+how+') against a context of '+ctx+'. Shorten the text, or choose a larger Context and press Reload.'});aiLog('Refused: prompt '+pt+' tokens, context '+ctx);return}
- if(pt+maxTok>ctx){const m=Math.max(16,ctx-pt-8);aiLog('Max tokens lowered from '+maxTok+' to '+m+' to fit the context');maxTok=m}
- AI.busy=true;AI.abort=new AbortController();aiClock(true);
+ if(AI.busy||!AI.on)return;
+ const sp=aiSpecNow();
+ if(!sp.ok||aiPipeOn()||!aiReady()){aiSync();return}
+ const key=aiKeyOf(sp);
+ if(AI.cache.has(key)){AI.view='ai';run(1);return}
+ const input=sp.c.text,q=$('#pq').checked;
+ if(!input.trim()){aiSet('ready',{msg:'Input is empty. Paste or type some text first.'});return}
+ AI.busy=true;AI.abort=new AbortController();const prev=AI.view;
+ aiClock(true);aiSet('busy',{st:['done','done','done'],msg:'Preparing: '+sp.what+'...'});aiButtons();
+ let base=input;
+ if(sp.base==='fix'){const r=typoFix(input,q);if(r.wait)aiLog('Dictionary not loaded yet: sending the raw text');else base=r.segs.map(s=>s[0]).join('')}
+ const extra=$('#aiextra').value.trim(),instr=sp.instr+(extra?'\nAlso: '+extra:''),full=instr+'\n\nText:\n'+base,temp=+$('#aitemp').value/100,seed=hash($('#seed').value+sp.id)%2147483647,ctx=AI.info.n_ctx;
+ let pt,btok,how='counted';
+ try{const a=await AI.wl.tokenize(AISYS+'\n'+full),b=await AI.wl.tokenize(base);if(!Array.isArray(a)||!Array.isArray(b))throw 0;pt=a.length+24;btok=b.length}
+ catch(_e){how='estimated';btok=Math.ceil(base.length/3.5);pt=btok+Math.ceil((AISYS.length+instr.length)/3.5)+24}
+ const room=ctx-pt-8;let maxTok=Math.ceil(sp.outWords*Math.max(1.2,btok/Math.max(1,wc(base)))*1.3)+40;
+ if(pt>ctx-32||room<16){
+  AI.busy=false;AI.abort=null;aiClock(false,'');aiLog('Refused: prompt about '+pt+' tokens, context '+ctx);aiButtons();
+  aiSet('ready',{msg:'The text is too long for the context: about '+pt+' tokens ('+how+') against a context of '+ctx+'. Shorten the text, or choose a larger Context in Model & settings and press Reload.'});return}
+ if(maxTok>room){aiLog('Length limit lowered from '+maxTok+' to '+room+' tokens to fit the context');maxTok=room}
+ AI.view='ai';aiSync();$('#out').textContent='';
+ aiSet('busy',{msg:'Reading your text (about '+pt+' tokens, '+how+')... the first word can take a few seconds.'});
+ aiLog('Run: '+sp.name+', input about '+pt+' tokens, creativity '+temp.toFixed(2)+', limit '+maxTok+' tokens');
  let out='',ntok=0,ttft=0,paint=0;
- aiSet('busy',{st:['done','done','done'],msg:'Reading your text (about '+pt+' tokens, '+how+')... the first word can take a few seconds.'});aiButtons();
- aiLog('Run: '+AIN[task]+', input about '+pt+' tokens, creativity '+temp.toFixed(2)+', max '+maxTok+' tokens');
  const tps=()=>ntok/Math.max(aiSecs(),.01);
  const feed=x=>{out+=x;ntok++;if(ntok===1){ttft=aiSecs();aiLog('First token after '+ttft.toFixed(1)+' s (prompt processing)')}
   const n=performance.now();if(n-paint>80){paint=n;plain=out;$('#out').textContent=out;$('#out').scrollTop=$('#out').scrollHeight;$('#aimsg').textContent='Generating... '+ntok+' tokens, '+tps().toFixed(1)+' tok/s. Stop keeps what has been written so far.'}};
  const chat=()=>AI.wl.createChatCompletion({messages:[{role:'system',content:AISYS},{role:'user',content:full}],max_tokens:maxTok,temperature:temp,top_k:40,top_p:.9,seed,abortSignal:AI.abort.signal,cache_prompt:true,stream:true,onData:ch=>{const d=ch&&ch.choices&&ch.choices[0]&&ch.choices[0].delta;if(d&&typeof d.content==='string'&&d.content)feed(d.content)}});
- const raw=()=>AI.wl.createCompletion({prompt:instr+'\n\n'+t+'\n\nResult:',max_tokens:maxTok,temperature:temp,seed,abortSignal:AI.abort.signal,stop:['\nText:','Text:'],stream:true,onData:ch=>{const x=ch&&ch.choices&&ch.choices[0]&&ch.choices[0].text;if(x)feed(x)}});
+ const raw=()=>AI.wl.createCompletion({prompt:instr+'\n\n'+base+'\n\nResult:',max_tokens:maxTok,temperature:temp,seed,abortSignal:AI.abort.signal,stop:['\nText:','Text:'],stream:true,onData:ch=>{const x=ch&&ch.choices&&ch.choices[0]&&ch.choices[0].text;if(x)feed(x)}});
  const isAbort=e=>(e&&e.name==='AbortError')||/abort/i.test(aiMsg(e));
  let result='done',err='';
  try{
-  if(AI.info.has_chat===false){aiLog('No chat template: using raw completion');await raw()}
+  if(AI.info.has_chat===false){aiLog('No chat template: using raw completion');await raw();result='raw'}
   else{try{await chat()}catch(e1){
    if(isAbort(e1)||ntok>0||/context|n_ctx|exceed|too long|memory/i.test(aiMsg(e1)))throw e1;
    aiLog('Chat mode failed ('+aiMsg(e1)+'), retrying in raw completion mode');out='';ntok=0;await raw();result='raw'}}
  }catch(e){if(isAbort(e))result='stopped';else{result='error';err=aiMsg(e)}}
- const secs=aiSecs(),cut=ntok>=maxTok&&result!=='stopped'&&result!=='error';
- out=aiClean(out,input);plain=out;
- AI.last={input,output:out,stat:'AI '+ntok+' tokens in '+secs.toFixed(1)+'s ('+tps().toFixed(1)+' tok/s)'};
+ const secs=aiSecs(),cut=ntok>=maxTok&&(result==='done'||result==='raw');
+ out=aiClean(out,input);
  AI.busy=false;AI.abort=null;aiClock(false,'ran '+secs.toFixed(1)+' s');
- aiShow();$('#stat').textContent=aiStat(input,AI.last.stat);
  const speed=ntok+' tokens in '+secs.toFixed(1)+' s ('+tps().toFixed(1)+' tok/s'+(ttft?', first token after '+ttft.toFixed(1)+' s':'')+')';
- if(result==='error'){aiLog('Generation failed: '+err);aiSet('ready',{msg:'Generation failed: '+err+(/context|n_ctx|exceed/i.test(err)?' Try a larger Context (then Reload) or shorter text.':'')})}
- else if(result==='stopped'){aiLog('Stopped by user after '+ntok+' tokens');aiSet('ready',{msg:'Stopped after '+speed+'. The partial output is kept.'})}
- else{aiLog('Done: '+speed);aiSet('ready',{msg:'Done: '+speed+(cut?'. It stopped at the Max tokens limit ('+maxTok+'), so the output is probably cut off. Raise Max tokens and run again.':'')+(result==='raw'?' (raw completion mode)':'')})}
- aiButtons();
+ let msg;
+ if(out){
+  const lost=mask(input,q).items.filter(x=>!out.includes(x));
+  AI.cache.set(key,{text:out,info:' | '+sp.name+' (AI: '+ntok+' tokens, '+secs.toFixed(1)+' s'+(cut?', cut off':'')+(result==='stopped'?', stopped early':'')+')'+(lost.length?' | WARNING: the AI changed '+lost.length+' protected item'+(lost.length>1?'s':'')+': '+lost.slice(0,3).join(', '):'')});
+  while(AI.cache.size>12)AI.cache.delete(AI.cache.keys().next().value);
+  AI.view='ai';
+  msg=(result==='stopped'?'Stopped after ':'Done: ')+speed+(result==='stopped'?'. The partial output is kept.':'')
+   +(cut?'. It stopped at the length limit ('+maxTok+' tokens), so the output is probably cut off. Try a larger Context or shorter text.':'')
+   +(lost.length?' Warning: '+lost.length+' protected item(s) changed, see the line under the output.':'')+(result==='raw'?' (raw completion mode)':'');
+  aiLog(result==='stopped'?'Stopped by user after '+ntok+' tokens':'Done: '+speed);
+ }else{AI.view=prev;msg=result==='error'?'Generation failed: '+err+(/context|n_ctx|exceed/i.test(err)?' Try a larger Context (then Reload) or shorter text.':''):'The model returned no text. Try again, or raise Creativity a little.';aiLog('No output: '+(err||result))}
+ run(1);aiSet('ready',{msg});aiButtons();
 }
 
 /* ---- sliders, wiring ---- */
-function aiFill(){fill($('#aitemp'));fill($('#aimt'));$('#aitempv').textContent=(+$('#aitemp').value/100).toFixed(2);$('#aimtv').textContent=$('#aimt').value+' tok'}
-['aitemp','aimt'].forEach(id=>{const e=$('#'+id);e.addEventListener('input',aiFill);
- e.parentElement.addEventListener('wheel',ev=>{ev.preventDefault();e.value=+e.value-Math.sign(ev.deltaY)*(+e.step||1);aiFill()},{passive:false})});
+function aiFill(){fill($('#aitemp'));$('#aitempv').textContent=(+$('#aitemp').value/100).toFixed(2)}
+{const e=$('#aitemp');e.addEventListener('input',()=>{aiFill();run(1)});
+ e.parentElement.addEventListener('wheel',ev=>{ev.preventDefault();e.value=+e.value-Math.sign(ev.deltaY)*(+e.step||1);aiFill();run(1)},{passive:false})}
 const aiStaleHint=()=>{if(aiReady())$('#aihint').textContent='Context and WebGPU only apply when a model is loaded. Press Reload to apply the change.'};
 $('#aictx').addEventListener('change',aiStaleHint);
 $('#aigpu').addEventListener('change',aiStaleHint);
-const aiEngUi=()=>{$('#aiengv').hidden=$('#aieng').value!=='cdn';sv('aieng',$('#aieng').value);sv('aiengv',$('#aiengv').value);
- const k=aiEngSel().key;if(AI.mod&&k!==AI.key)$('#aihint').textContent=aiReady()?'Engine changed. Press Reload to switch; the loaded model is released first.':'';aiKV()};
-$('#aieng').addEventListener('change',aiEngUi);$('#aiengv').addEventListener('input',aiEngUi);
-{const e=lv('aieng'),v=lv('aiengv');if(e==='cdn'||e==='local')$('#aieng').value=e;$('#aiengv').value=v||ENGINE.ver;$('#aiengv').hidden=$('#aieng').value!=='cdn'}
-$('#aiq').addEventListener('change',()=>{const k=$('#aiq').value;$('#aicrow').hidden=k!=='custom';$('#aitemp').value=AIT[k];aiFill()});
+$('#aiextra').addEventListener('input',()=>run(1));
+function aiDrawer(open){$('#aidrawer').hidden=!open;$('#aitoggle').setAttribute('aria-expanded',String(open))}
+$('#aitoggle').onclick=()=>aiDrawer($('#aidrawer').hidden);
+$('#aion').addEventListener('change',()=>{AI.on=$('#aion').checked;sv('aion',AI.on?'1':'0');
+ if(!AI.on){if(AI.abort)AI.abort.abort();AI.view='local'}else if(!aiReady()&&!AI.busy)aiDrawer(true);run(1)});
+document.querySelectorAll('#aiview button').forEach(b=>b.onclick=()=>{if(b.disabled)return;AI.view=b.dataset.v;run(1)});
 $('#aiload').onclick=()=>$('#aifl').click();
 $('#aifl').onchange=e=>{aiLoad(e.target.files[0]);e.target.value=''};
 $('#aireload').onclick=()=>aiLoad(AI.file);
 $('#aiunload').onclick=aiUnload;
 $('#airun').onclick=aiRun;
 $('#aistop').onclick=()=>{if(AI.abort)AI.abort.abort()};
-$('#rr').addEventListener('click',()=>{if(tab==='ai'&&aiReady()&&!AI.busy&&AI.last)aiRun()});
-const aiPanel=$('#panel-ai');
+$('#rr').addEventListener('click',()=>{if(AI.on&&AI.view==='ai'&&aiReady()&&!AI.busy)setTimeout(aiRun,0)});
+const aiPanel=$('#aicard');
 aiPanel.addEventListener('dragover',e=>{e.preventDefault();aiPanel.classList.add('drag')});
 aiPanel.addEventListener('dragleave',e=>{if(!aiPanel.contains(e.relatedTarget))aiPanel.classList.remove('drag')});
-aiPanel.addEventListener('drop',e=>{aiPanel.classList.remove('drag');const f=e.dataTransfer&&e.dataTransfer.files[0];if(f){e.preventDefault();aiLoad(f)}});
+aiPanel.addEventListener('drop',e=>{aiPanel.classList.remove('drag');const f=e.dataTransfer&&e.dataTransfer.files[0];if(f){e.preventDefault();if(!AI.on){AI.on=true;$('#aion').checked=true;sv('aion','1')}aiLoad(f)}});
 
-aiFill();aiKV();aiButtons();
+const aiEngUi=()=>{$('#aiengv').hidden=$('#aieng').value!=='cdn';sv('aieng',$('#aieng').value);sv('aiengv',$('#aiengv').value);
+ const k=aiEngSel().key;if(AI.mod&&k!==AI.key)$('#aihint').textContent=aiReady()?'Engine changed. Press Reload to switch; the loaded model is released first.':'';aiKV()};
+$('#aieng').addEventListener('change',aiEngUi);$('#aiengv').addEventListener('input',aiEngUi);
+{const e=lv('aieng'),v=lv('aiengv');if(e==='cdn'||e==='local')$('#aieng').value=e;$('#aiengv').value=v||ENGINE.ver;$('#aiengv').hidden=$('#aieng').value!=='cdn'}
+
+aiFill();aiKV();
 aiSet('idle',{title:'No model in memory',st:aiIdleSt(),msg:'Nothing is loaded or downloaded yet. Suggested first model: LFM2.5-350M-Q4_K_M.gguf (229 MB), see Which model? below. Pick the file with Load .gguf, or drop it on this panel.'});
-if(tab==='ai')aiRefresh();
+if(lv('aion')==='1'){AI.on=true;$('#aion').checked=true;aiDrawer(true)}
+aiButtons();

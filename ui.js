@@ -1,5 +1,5 @@
 //UI
-const $=s=>document.querySelector(s),TABS=[['size','Shrink / Enlarge','--orange'],['tone','Tone','--teal'],['tadd','Typos','--pink'],['pers','Personality','--violet'],['tools','Tools','--blue'],['ai','AI','--green']];
+const $=s=>document.querySelector(s),TABS=[['size','Shrink / Enlarge','--orange'],['tone','Tone','--teal'],['tadd','Typos','--pink'],['pers','Personality','--violet'],['tools','Tools','--blue']];
 const S={
  size:["The old lighthouse at the edge of the harbor had been abandoned for nearly twenty years, but the villagers still talked about it every evening. They said that on foggy nights the lamp would flicker back to life, although nobody had actually seen anyone climb the stairs. Last spring, a young engineer decided to investigate the mystery, and she spent a whole week inside the tower with nothing but a flashlight and a notebook. In the end, she discovered that a loose cable was swinging in the wind and touching an old battery.",
   "Making a good cup of coffee is really not as difficult as most people think, but it does require a little bit of patience. First, you should always use fresh beans and grind them just before brewing, because the flavor fades very quickly. Next, the water should be hot but not boiling, since boiling water can make the coffee taste bitter. Finally, be sure to pour slowly and enjoy the wonderful smell that fills the kitchen.",
@@ -20,10 +20,10 @@ const S={
   "Wow, this is a very good idea! You are right that we need a better plan, and I will tell the boss about it tomorrow. Please do not forget to buy the car insurance."]
 };
 S.tclean=["i think  the the meeting is at noon ,but i'm not sure.we should check with the team  before we leave.  maybe i can call them tomorrow","hello everyone ,thanks for coming.please remember to bring your laptop  and your your notes. the schedule is on the board ,and i will send the slides later","we went to the park yesterday.it was sunny and and warm ,so we stayed for hours.  i had a great time"];
-const NOTE={size:'Cuts or pads the text by this % of its length. Enlarging only pads the wording; it adds no new facts.',tadd:'% of the words that get a typo. Changed words are highlighted.',tfix:'Fixes misspelled words with the built-in dictionary. Names, ALL-CAPS words, URLs and numbers are left alone. Changes are highlighted.',pers:'Rewrites the text in a voice. Lower strength gives a lighter touch.',tclean:'Fixes spacing, repeated words, a lowercase "i" and missing capitals. It does not touch spelling.',tools:'One-click text transforms. Use Reroll to change the Zalgo effect.',tone_formal:'Expands contractions and slang and swaps plain words for formal ones.',tone_casual:'Adds contractions, slang and chat shortcuts.',tone_simple:'Swaps fancy words for plain ones and splits long sentences.',ai:'Runs a small language model inside this page (WebAssembly, nothing is uploaded). Load a .gguf file, pick a task, press Run AI. Seed and Reroll change the sampling (Reroll re-runs the last task with a new seed); Protect quoted text only applies to the non-AI tools.'};
+const NOTE={size:'Cuts or pads the text by this % of its length. Enlarging only pads the wording; it adds no new facts.',tadd:'% of the words that get a typo. Changed words are highlighted.',tfix:'Fixes misspelled words with the built-in dictionary. Names, ALL-CAPS words, URLs and numbers are left alone. Changes are highlighted.',pers:'Rewrites the text in a voice. Lower strength gives a lighter touch.',tclean:'Fixes spacing, repeated words, a lowercase "i" and missing capitals. It does not touch spelling.',tools:'One-click text transforms. Use Reroll to change the Zalgo effect.',tone_formal:'Expands contractions and slang and swaps plain words for formal ones.',tone_casual:'Adds contractions, slang and chat shortcuts.',tone_simple:'Swaps fancy words for plain ones and splits long sentences.'};
 let tab='size',dir=-1,tmode='add',nmode='formal',plain='',timer,last='',dfail=false;
 const isSample=v=>!v.trim()||Object.values(S).some(a=>a.includes(v));
-const pickS=()=>last=pick(S[tab==='tadd'&&tmode!=='add'?(tmode==='fix'?'tfix':'tclean'):tab==='tone'?'size':tab==='tools'?'pers':tab==='ai'?'size':tab].filter(x=>x!==last),Math.random);
+const pickS=()=>last=pick(S[tab==='tadd'&&tmode!=='add'?(tmode==='fix'?'tfix':'tclean'):tab==='tone'?'size':tab==='tools'?'pers':tab].filter(x=>x!==last),Math.random);
 const sv=(k,v)=>{try{localStorage.setItem('tm_'+k,v)}catch(e){}},lv=k=>{try{return localStorage.getItem('tm_'+k)}catch(e){return null}};
 TABS.forEach(([id,n,c])=>{const b=document.createElement('button');b.type='button';b.id='tab-'+id;b.setAttribute('aria-controls','panel-'+id);b.setAttribute('role','tab');b.setAttribute('aria-selected','false');b.textContent=n;b.dataset.id=id;b.style.setProperty('--b',`var(${c})`);b.onclick=()=>setTab(id);$('#tabs').append(b)});
 $('#pk').innerHTML=Object.keys(PS).sort((a,b)=>PN[a].localeCompare(PN[b])).map(k=>`<option value="${k}">${PN[k]}</option>`).join('');
@@ -46,15 +46,18 @@ function run(keep){
  const t=$('#in').value,r=mk($('#seed').value),q=$('#pq').checked,id=SLT();let res,info='',v=0;
  if(id){const e=$('#'+id);v=LVL[id][e.value];fill(e);$('#'+id+'v').textContent=v+'%'}
  $('#trow').style.display=tab==='tadd'&&tmode!=='add'?'none':'';
- document.querySelectorAll('.note').forEach(e=>{let k=e.parentElement.dataset.t;if(!k)return;if(k=='tadd'&&tmode!='add')k=tmode=='fix'?'tfix':'tclean';if(k=='tone')k='tone_'+nmode;if(k=='tfix'&&dfail)return;e.textContent=(NOTE[k]||'')+(['tfix','tclean','tools','ai'].includes(k)?'':' Scroll the mouse wheel over the slider to adjust. Percentages that would not change the result are skipped, and the step size adapts to the text length.')});
- if(tab=='ai'){if(typeof aiRefresh=='function')aiRefresh();return}
+ document.querySelectorAll('.note').forEach(e=>{let k=e.parentElement.dataset.t;if(!k)return;if(k=='tadd'&&tmode!='add')k=tmode=='fix'?'tfix':'tclean';if(k=='tone')k='tone_'+nmode;if(k=='tfix'&&dfail)return;e.textContent=(NOTE[k]||'')+(['tfix','tclean','tools'].includes(k)?'':' Scroll the mouse wheel over the slider to adjust. Percentages that would not change the result are skipped, and the step size adapts to the text length.')});
+ if(typeof aiBusy=='function'&&aiBusy()){aiSync();return}
  if(tab=='size'){const z=dir*v;res=size(t,z,r,q);if(z)info=` | asked ${z>0?'+':''}${z}%, got ${res.ach>0?'+':''}${res.ach}%${res.used&&res.used.length?` | used: ${res.used.join(', ')}`:''}`}
  else if(tab=='tadd'){if(tmode=='clean'){res=cleanup(t,q);info=` | ${res.n} fixes`}else if(tmode=='fix'){res=typoFix(t,q);info=res.wait?' | dictionary loading...':` | ${res.n} words fixed`}else{res=typoAdd(t,v,r,q);info=` | ${res.n} typos added`}}
  else if(tab=='tone'){res=tone(t,v,nmode,r,q);info=` | ${nmode}`}else if(tab=='tools'){res=useTool($('#tk').value,t,r,q)}else res=pers(t,$('#pk').value,v,r,q);
  if(pipeOn&&PIPE.length){res={segs:[[runPipe(t,q),0]]};info=` | pipeline: ${PIPE.length} step${PIPE.length>1?'s':''}`}
  plain=res.segs.map(s=>s[0]).join('');
+ const ov=typeof aiOverlay=='function'?aiOverlay(t):null;
+ if(ov){plain=ov.text;res={segs:[[plain,0]]};info=ov.info}
  $('#out').innerHTML=renderOut(res,t);
  $('#stat').textContent=`${cc(t)} -> ${cc(plain)} chars | ${wc(t)} -> ${wc(plain)} words${info}${readInfo(plain)}`;
+ if(typeof aiSync=='function')aiSync();
 }
 ['#in','#pk','#seed','#pq'].forEach(s=>{$(s).addEventListener('input',go);$(s).addEventListener('change',go)});
 ['z','tn','ty','ps'].forEach(id=>{const e=$('#'+id),set=()=>{pct[id]=LVL[id][e.value];run(1)};e.addEventListener('input',set);
@@ -76,13 +79,13 @@ let PIPE=[],pipeOn=false;
 try{PIPE=JSON.parse(lv('pipe')||'[]')}catch(e){PIPE=[]}
 const stepName=s=>({size:`${s.dir<0?'Shrink':'Enlarge'} ${s.v}%`,typo:s.m==='add'?`Typos ${s.v}%`:s.m==='fix'?'Fix typos':'Clean up',tone:`${s.m} ${s.v}%`,pers:`${PN[s.k]||s.k} ${s.v}%`,tools:TOOLS[s.k]?TOOLS[s.k][0]:s.k})[s.t];
 function drawChips(){$('#chips').innerHTML=PIPE.length?PIPE.map((s,i)=>`<span class="chip" data-i="${i}" title="Click to remove">${i+1}. ${esc(stepName(s))} &times;</span>`).join(''):'<span class="note">No steps yet. Set up a tab, then press Add step.</span>';$('#pr').textContent='Pipeline: '+(pipeOn?'ON':'OFF');sv('pipe',JSON.stringify(PIPE))}
-const curStep=()=>{const id=SLT(),v=id?LVL[id][$('#'+id).value]:0;return tab=='size'?{t:'size',dir,v}:tab=='tadd'?{t:'typo',m:tmode,v}:tab=='tone'?{t:'tone',m:nmode,v}:tab=='pers'?{t:'pers',k:$('#pk').value,v}:tab=='ai'?null:{t:'tools',k:$('#tk').value}};
+const curStep=()=>{const id=SLT(),v=id?LVL[id][$('#'+id).value]:0;return tab=='size'?{t:'size',dir,v}:tab=='tadd'?{t:'typo',m:tmode,v}:tab=='tone'?{t:'tone',m:nmode,v}:tab=='pers'?{t:'pers',k:$('#pk').value,v}:{t:'tools',k:$('#tk').value}};
 function applyStep(s,t,r,q){const x=s.t=='size'?size(t,s.dir*s.v,r,q):s.t=='typo'?(s.m=='add'?typoAdd(t,s.v,r,q):s.m=='fix'?typoFix(t,q):cleanup(t,q)):s.t=='tone'?tone(t,s.v,s.m,r,q):s.t=='pers'&&PS[s.k]?pers(t,s.k,s.v,r,q):useTool(s.k,t,r,q);return x.segs.map(a=>a[0]).join('')}
 const runPipe=(t,q)=>PIPE.reduce((a,s,i)=>applyStep(s,a,mk($('#seed').value+i),q),t);
 const PRE={'Phone message':[{t:'size',dir:-1,v:35},{t:'tone',m:'casual',v:60},{t:'typo',m:'add',v:15}],'Pirate memo':[{t:'tone',m:'formal',v:80},{t:'pers',k:'pirate',v:80}],'Mess it up':[{t:'tone',m:'casual',v:70},{t:'typo',m:'add',v:30},{t:'pers',k:'drunk',v:60}],'Clean and simple':[{t:'typo',m:'clean',v:0},{t:'tone',m:'simple',v:80},{t:'size',dir:-1,v:20}]};
 $('#pp').innerHTML='<option value="">Presets...</option>'+Object.keys(PRE).map(k=>`<option>${k}</option>`).join('');
 $('#chips').onclick=e=>{const c=e.target.closest('.chip');if(c){PIPE.splice(+c.dataset.i,1);drawChips();run(1)}};
-$('#pa').onclick=()=>{const s=curStep();if(!s){$('#stat').textContent='The AI tab cannot be a pipeline step yet. Pipeline steps are the local tools only.';return}PIPE.push(s);drawChips();run(1)};
+$('#pa').onclick=()=>{const s=curStep();if(!s)return;PIPE.push(s);drawChips();run(1)};
 $('#pc').onclick=()=>{PIPE=[];pipeOn=false;drawChips();run(1)};
 $('#pr').onclick=()=>{pipeOn=!pipeOn;drawChips();run(1)};
 $('#pp').onchange=e=>{const p=PRE[e.target.value];if(p){PIPE=p.map(s=>({...s}));pipeOn=true;drawChips();run(1)}e.target.value=''};
