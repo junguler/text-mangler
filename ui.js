@@ -73,7 +73,8 @@ $('#sm').onclick=()=>setIn(pickS());
 $('#up').onclick=()=>setIn(plain);
 $('#cl').onclick=()=>setIn('');
 $('#cp').onclick=async()=>{let copied=false;try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(plain);copied=true}}catch(e){}if(!copied){const a=document.createElement('textarea');a.value=plain;a.setAttribute('aria-hidden','true');a.style.cssText='position:fixed;left:-9999px;top:0';document.body.append(a);a.select();try{copied=document.execCommand('copy')}catch(e){}a.remove()}$('#cp').textContent=copied?'Copied!':'Copy failed';setTimeout(()=>$('#cp').textContent='Copy',1400)};
-$('#tk').innerHTML=Object.keys(TOOLS).map(k=>`<option value="${k}">${TOOLS[k][0]}</option>`).join('');
+{const opt=k=>`<option value="${k}">${TOOLS[k][0]}</option>`,seen=new Set(Object.values(TG).flat()),rest=Object.keys(TOOLS).filter(k=>!seen.has(k));
+ $('#tk').innerHTML=Object.entries(TG).map(([g,ks])=>`<optgroup label="${g}">${ks.filter(k=>TOOLS[k]).map(opt).join('')}</optgroup>`).join('')+(rest.length?`<optgroup label="Other">${rest.map(opt).join('')}</optgroup>`:'')}
 function renderOut(res,t){if($('#df').checked){const d=diffMarks(t,plain);if(d){let wi=0;return plain.split(/(\s+)/).map(p=>!p?'':/^\s+$/.test(p)?esc(p):(d.keep.has(wi++)?esc(p):`<mark>${esc(p)}</mark>`)).join('')}}return res.segs.map(([s,m])=>m?`<mark>${esc(s)}</mark>`:esc(s)).join('')}
 let PIPE=[],pipeOn=false;
 try{PIPE=JSON.parse(lv('pipe')||'[]')}catch(e){PIPE=[]}

@@ -31,7 +31,7 @@ function aiSpec(c){
  if(c.tab==='pers'){
   const nm=(typeof PN!=='undefined'&&PN[c.pk])||c.pk,d=v<35?'with a light touch':v<70?'with a clear but moderate style':'fully committing to the style';
   return{ok:true,id:'pers:'+c.pk,tkey:'pers:'+c.pk,name:nm+' '+v+'%',what:'rewrite it in the "'+nm+'" voice, '+d,
-   instr:'Rewrite the text in the "'+nm+'" speaking style, '+d+'.'+AIKEEP,temp:.5,outWords:n*1.4};
+   instr:'Rewrite the text in the "'+nm+'" speaking style'+(typeof PD!=='undefined'&&PD[c.pk]?' ('+PD[c.pk]+')':'')+', '+d+'.'+AIKEEP,temp:.5,outWords:n*1.4};
  }
  return{ok:false,why:'AI does not apply here.'};
 }

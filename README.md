@@ -25,6 +25,16 @@ better. Nothing is uploaded anywhere.
 Keep all files in one folder. Opening the page loads the dictionary and the small scripts (about 1.6 MB);
 the AI engine (about 11 MB) is fetched only when you load a model.
 
+## Personalities and tools
+
+- **Personality**: 52 voices (pirate, wizard, legalese, butler, drill sergeant, soap opera, zen guru, emoji lover,
+  text-speak, customer service, nature documentary, and more). Each is a table in `personalities.js`:
+  word swaps (`sw`), openers (`pre`), closers (`post`) and an optional per-word function (`fn`).
+  Copy an existing entry to add one, give it a name in `PN`, and optionally a one-line style note in `PD`
+  that the AI uses.
+- **Tools**: 53 exact text tools in groups (Case, Reverse, Style, Encode, Lines, Analyze), defined in
+  `tools.js` as `key:[name, function, protect]`. List a new one in `TG` to place it in a group.
+
 ## AI assist
 
 Tick **AI assist** under the controls. Every tab keeps working exactly as before, instantly, with its local

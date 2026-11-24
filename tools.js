@@ -49,3 +49,61 @@ function diffMarks(a,b){const A=a.match(/\S+/g)||[],B=b.match(/\S+/g)||[],m=A.le
  for(let i=m-1;i>=0;i--)for(let j=n-1;j>=0;j--)T[i][j]=A[i]===B[j]?T[i+1][j+1]+1:Math.max(T[i+1][j],T[i][j+1]);
  const keep=new Set();let i=0,j=0;while(i<m&&j<n){if(A[i]===B[j]){keep.add(j);i++;j++}else if(T[i+1][j]>=T[i][j+1])i++;else j++}
  return{keep}}
+
+/* ---- more tools ---- [name, fn(text, rng), protect links/numbers/quotes first (1) or not (0)] ---- */
+const TW=s=>s.replace(/([\p{Ll}\d])(\p{Lu})/gu,'$1 $2').split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(w=>w.toLowerCase());
+const perLine=f=>s=>s.split('\n').map(f).join('\n');
+const cap1=w=>w[0].toUpperCase()+w.slice(1);
+const fancy=(s,A,a,d)=>Array.from(s,c=>{const k=c.codePointAt(0);return k>=65&&k<=90?String.fromCodePoint(A+k-65):k>=97&&k<=122?String.fromCodePoint(a+k-97):d&&k>=48&&k<=57?String.fromCodePoint(d+k-48):c}).join('');
+const FLIPU={a:'ɐ',b:'q',c:'ɔ',d:'p',e:'ǝ',f:'ɟ',g:'ƃ',h:'ɥ',i:'ᴉ',j:'ɾ',k:'ʞ',m:'ɯ',n:'u',p:'d',q:'b',r:'ɹ',t:'ʇ',u:'n',v:'ʌ',w:'ʍ',y:'ʎ','.':'˙',',':"'",'?':'¿','!':'¡','(':')',')':'(','[':']',']':'[','{':'}','}':'{','<':'>','>':'<','&':'⅋','_':'‾',A:'∀',C:'Ɔ',E:'Ǝ',F:'Ⅎ',G:'פ',J:'ſ',L:'˥',M:'W',P:'Ԁ',R:'ᴚ',T:'┴',U:'∩',V:'Λ',W:'M',Y:'⅄'};
+const bytesOf=s=>Array.from(new TextEncoder().encode(s));
+const b64e=s=>{const b=new TextEncoder().encode(s);let x='';for(let i=0;i<b.length;i+=8192)x+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(x)};
+const b64d=s=>{try{const b=atob(s.replace(/\s+/g,''));return new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(b,c=>c.charCodeAt(0)))}catch(e){return '(not valid Base64 text)'}};
+const rot=(s,f)=>s.replace(/[a-z]/gi,c=>{const b=c<'a'?65:97;return String.fromCharCode(f(c.charCodeAt(0)-b)+b)});
+const wrapAt=(l,n)=>{const o=[];let cur='';l.split(/\s+/).filter(Boolean).forEach(w=>{if(cur&&(cur+' '+w).length>n){o.push(cur);cur=w}else cur=cur?cur+' '+w:w});if(cur)o.push(cur);return o.join('\n')};
+Object.assign(TOOLS,{
+ swap:['sWAP cASE',s=>Array.from(s,c=>c===c.toUpperCase()?c.toLowerCase():c.toUpperCase()).join(''),1],
+ camel:['camelCase',perLine(l=>TW(l).map((w,i)=>i?cap1(w):w).join('')),0],
+ pascal:['PascalCase',perLine(l=>TW(l).map(cap1).join('')),0],
+ snake:['snake_case',perLine(l=>TW(l).join('_')),0],
+ kebab:['kebab-case',perLine(l=>TW(l).join('-')),0],
+ slug:['URL slug',perLine(l=>TW(l.normalize('NFD').replace(/\p{M}+/gu,'')).join('-')),0],
+ flip:['Upside down',perLine(l=>Array.from(l).reverse().map(c=>FLIPU[c]||c).join('')),0],
+ bold:['Bold (Unicode)',s=>fancy(s,0x1D5D4,0x1D5EE,0x1D7EC),1],
+ italic:['Italic (Unicode)',s=>fancy(s,0x1D608,0x1D622,0),1],
+ mono:['Monospace (Unicode)',s=>fancy(s,0x1D670,0x1D68A,0x1D7F6),1],
+ wide:['Ｆｕｌｌｗｉｄｔｈ',s=>Array.from(s,c=>{const k=c.codePointAt(0);return k===32?'\u3000':k>32&&k<127?String.fromCodePoint(k+0xFEE0):c}).join(''),1],
+ bubble:['Ⓑⓤⓑⓑⓛⓔ',s=>Array.from(s,c=>{const k=c.codePointAt(0);return k>=65&&k<=90?String.fromCodePoint(0x24B6+k-65):k>=97&&k<=122?String.fromCodePoint(0x24D0+k-97):k>=49&&k<=57?String.fromCodePoint(0x2460+k-49):k===48?'\u24EA':c}).join(''),1],
+ strike:['S̶t̶r̶i̶k̶e̶t̶h̶r̶o̶u̶g̶h̶',s=>Array.from(s,c=>/\s/.test(c)?c:c+'\u0336').join(''),1],
+ under:['U̲n̲d̲e̲r̲l̲i̲n̲e̲',s=>Array.from(s,c=>/\s/.test(c)?c:c+'\u0332').join(''),1],
+ clap:['Clap 👏 between 👏 words',s=>s.replace(/ +/g,' 👏 '),1],
+ spaced:['S p a c e d  o u t',s=>s.split(/(\s+)/).map(p=>/^\s+$/.test(p)?(p.includes('\n')?p:'  '+p+'  '):Array.from(p).join(' ')).join(''),1],
+ vowels:['Remove vowels',s=>s.replace(/\p{L}+/gu,w=>w[0]+w.slice(1).replace(/[aeiou]/gi,'')),1],
+ bin:['Text to binary',s=>bytesOf(s).map(b=>b.toString(2).padStart(8,'0')).join(' '),0],
+ hex:['Text to hex',s=>bytesOf(s).map(b=>b.toString(16).padStart(2,'0')).join(' '),0],
+ b64:['Base64 encode',b64e,0],
+ b64d:['Base64 decode',b64d,0],
+ urlenc:['URL encode',s=>encodeURIComponent(s),0],
+ html:['HTML escape',s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),0],
+ rot13:['ROT13',s=>rot(s,i=>(i+13)%26),0],
+ atbash:['Atbash (A=Z)',s=>rot(s,i=>25-i),0],
+ sortz:['Sort lines Z-A',s=>s.split('\n').sort((a,b)=>b.localeCompare(a)).join('\n'),0],
+ sortn:['Sort lines by number',s=>s.split('\n').sort((a,b)=>{const x=parseFloat(a),y=parseFloat(b);return isNaN(x)||isNaN(y)?(isNaN(x)-isNaN(y))||a.localeCompare(b):x-y}).join('\n'),0],
+ revl:['Reverse line order',s=>s.split('\n').reverse().join('\n'),0],
+ shuffle:['Shuffle lines',(s,r)=>{const a=s.split('\n');for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a.join('\n')},0],
+ noblank:['Remove empty lines',s=>s.split('\n').filter(l=>l.trim()).join('\n'),0],
+ trim:['Trim and tidy lines',s=>s.split('\n').map(l=>l.replace(/[ \t]+$/,'')).join('\n').replace(/\n{3,}/g,'\n\n').trim(),0],
+ nums:['Number the lines',s=>s.split('\n').map((l,i)=>(i+1)+'. '+l).join('\n'),0],
+ bullets:['Bullet the lines',s=>s.split('\n').map(l=>l.trim()?'\u2022 '+l:l).join('\n'),0],
+ wrap:['Wrap at 72 columns',s=>s.split('\n').map(l=>wrapAt(l,72)).join('\n'),0],
+ unwrap:['Join wrapped lines',s=>s.replace(/(?<!\n)\n(?!\n)/g,' '),0],
+ freq:['Word frequency',s=>{const m=new Map();(s.toLowerCase().match(/[\p{L}\p{N}'\u2019]+/gu)||[]).forEach(w=>m.set(w,(m.get(w)||0)+1));return [...m].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,50).map(([w,n])=>n+'  '+w).join('\n')},0],
+ acro:['Acronym from words',perLine(l=>(l.match(/[\p{L}\p{N}]+/gu)||[]).map(w=>w[0].toUpperCase()).join('')),0]
+});
+/* how the Tool dropdown is grouped (any tool missing here lands in "Other") */
+const TG={Case:['upper','lower','title','sentence','alt','swap','camel','pascal','snake','kebab','slug'],
+ Reverse:['rev','revw','revx','flip'],
+ Style:['bold','italic','mono','wide','bubble','strike','under','clap','spaced','zalgo','leet','pig','vowels'],
+ Encode:['morse','nato','bin','hex','b64','b64d','urlenc','html','rot13','atbash'],
+ Lines:['nolines','sort','sortz','sortn','revl','shuffle','dedupe','noblank','trim','nums','bullets','wrap','unwrap'],
+ Analyze:['freq','acro']};
