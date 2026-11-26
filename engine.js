@@ -112,7 +112,7 @@ function typoAdd(t,pct,r,q){
  return{segs:out.map((x,i)=>[M.un(x),ch.has(i)?1:0]),n:ch.size};
 }
 let R=null,RB=[];
-const CTR={dont:"don't",cant:"can't",wont:"won't",isnt:"isn't",arent:"aren't",didnt:"didn't",doesnt:"doesn't",wasnt:"wasn't",couldnt:"couldn't",shouldnt:"shouldn't",wouldnt:"wouldn't",youre:"you're",theyre:"they're",thats:"that's",whats:"what's",havent:"haven't",hasnt:"hasn't",ive:"I've"};
+const CTR={dont:"don't",cant:"can't",wont:"won't",isnt:"isn't",arent:"aren't",didnt:"didn't",doesnt:"doesn't",wasnt:"wasn't",couldnt:"couldn't",shouldnt:"shouldn't",wouldnt:"wouldn't",youre:"you're",theyre:"they're",thats:"that's",whats:"what's",havent:"haven't",hasnt:"hasn't",ive:"I've",im:"I'm",hes:"he's",shes:"she's",theres:"there's",heres:"here's",wheres:"where's",whos:"who's",itll:"it'll",youll:"you'll",youve:"you've",youd:"you'd",theyll:"they'll",theyve:"they've",theyd:"they'd",weve:"we've",hadnt:"hadn't",mustnt:"mustn't",werent:"weren't",wouldve:"would've",couldve:"could've",shouldve:"should've",mightve:"might've",mustve:"must've"};
 const AL='abcdefghijklmnopqrstuvwxyz';
 function e1(w){const s=[];for(let i=0;i<=w.length;i++){const a=w.slice(0,i),b=w.slice(i);if(b)s.push(a+b.slice(1));if(b.length>1)s.push(a+b[1]+b[0]+b.slice(2));for(const c of AL){if(b)s.push(a+c+b.slice(1));s.push(a+c+b)}}return s}
 function best(list,w){let b=null,bs=1e9;for(const c of list){const k=R.get(c);if(k==null)continue;const score=k+(c[0]!==w[0]?4000:0)+(c.length<w.length?1500:0);if(score<bs){bs=score;b=c}}return b}
@@ -161,15 +161,17 @@ function fixWord(lw){
 function typoFix(t,q){
  if(!R)return{segs:[[t,0]],n:0,wait:1};
  const M=mask(t,q),tk=M.t.match(TOK)||[],out=tk.slice(),ch=new Set();d2Checks=0;d2Words=0;let prev='.';
+ const us=typeof FIXOPT!=='undefined'&&FIXOPT.us&&typeof usSpell==='function',gr=typeof FIXOPT!=='undefined'&&FIXOPT.gram&&typeof grammarFix==='function';
  tk.forEach((x,i)=>{
   if(/^[A-Za-z]{2,}$/.test(x)){
    const start=/[.!?\n]\s*$/.test(prev)||prev==='.'&&i==0;
-   const skip=(/^[A-Z][a-z]/.test(x)&&!start)||(x===x.toUpperCase());
-   if(!skip){const f=fixWord(x.toLowerCase());if(f){out[i]=mc(f,x);ch.add(i)}}
+   const skip=(/^[A-Z][a-z]/.test(x)&&!start)||(x===x.toUpperCase())||(tk[i-1]==='.'&&/^\p{L}/u.test(tk[i-2]||''))||/^(?:ii|iii|iv|vi|vii|viii|ix|xi|xii)$/i.test(x);
+   if(!skip){const lw=x.toLowerCase(),f=(us&&usSpell(lw,x!==lw))||fixWord(lw);if(f){out[i]=mc(f,x);ch.add(i)}}
   }
   if(/\S/.test(x))prev=x;else if(/\n/.test(x))prev+='\n';
  });
- return{segs:out.map((x,i)=>[M.un(x),ch.has(i)?1:0]),n:ch.size};
+ const extra=gr?grammarFix(tk,out,ch):0;
+ return{segs:out.map((x,i)=>[M.un(x),ch.has(i)?1:0]),n:ch.size+extra};
 }
 async function loadDict(){
  const b=Uint8Array.from(atob(DZ),c=>c.charCodeAt(0));

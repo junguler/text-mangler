@@ -2,7 +2,7 @@
    The engine is fetched the first time you load a model, never at page open. Two sources:
    Bundled = wllama.js + wllama.wasm from this folder (wllama-wasm.js is the embedded fallback for file://),
    CDN = the same two pieces from jsDelivr at a pinned wllama version. Change ENGINE.ver to bump the default.
-   State lives in one object (AI); the AI bar under the controls is drawn from it.
+   State lives in one object (AI); the AI card under the controls is drawn from it. The i window (#aidlg) is info only; engine, context, WebGPU, status details and the log sit under Settings and details in the card.
    What the AI is asked to do per tab lives in aitasks.js. */
 const ENGINE={ver:'4.0.0',
  cdnJs:v=>'https://cdn.jsdelivr.net/npm/@wllama/wllama@'+v+'/esm/index.min.js',
@@ -101,12 +101,12 @@ function aiExplain(e,file){
  if(/memory|alloc|oom/i.test(m))return 'Out of memory while loading '+file.name+' ('+aiMB(file.size)+'). Close other tabs, try a smaller model or a Q4_K_M quant, or lower Context. ('+m+')';
  if(/architecture|unknown model|unsupported|not supported/i.test(m))return 'This engine (llama.cpp '+(AI.ver||'?')+') does not support this model architecture, so a newer engine build is needed. Set Engine to CDN and enter a newer wllama version, or replace the bundled files. ('+m+')';
  if(/gguf|magic|invalid|corrupt|header/i.test(m))return file.name+' does not look like a complete .gguf file. Try downloading it again. ('+m+')';
- return m+'. The Activity log below has the steps that ran.'}
+ return m+'. The Activity log under Settings and details has the steps that ran.'}
 
 async function aiLoad(file){
  if(AI.busy||!file)return;
- if(!/\.gguf$/i.test(file.name)){aiSet(AI.state==='error'?'idle':AI.state,{msg:'"'+file.name+'" is not a .gguf file. Pick a GGUF model file (see Which model? below).'});aiLog('Rejected '+file.name+': not a .gguf file');return}
- AI.busy=true;AI.file=file;aiButtons();$('#aihint').textContent='';aiDrawer(true);
+ if(!/\.gguf$/i.test(file.name)){aiSet(AI.state==='error'?'idle':AI.state,{msg:'"'+file.name+'" is not a .gguf file. Pick a GGUF model file (click i for which model to get).'});aiLog('Rejected '+file.name+': not a .gguf file');return}
+ AI.busy=true;AI.file=file;aiButtons();$('#aihint').textContent='';
  const had=aiReady(),sel=aiEngSel(),warm=AI.mod&&AI.key===sel.key;let step=1;
  aiClock(true);aiLog('Load requested: '+file.name+' ('+aiMB(file.size)+')');
  try{
@@ -137,8 +137,8 @@ async function aiLoad(file){
  }catch(e){
   try{if(AI.wl)await AI.wl.exit()}catch(_e){}
   AI.wl=null;AI.info=null;AI.meta=null;
-  const secs=aiSecs();aiClock(false,'failed after '+secs.toFixed(1)+' s');aiLog('FAILED at step '+step+': '+aiMsg(e));
-  aiDrawer(true);aiSet('error',{title:'Could not load '+file.name,st:step===1?['fail','pending','pending']:['done','fail','pending'],msg:aiExplain(e,file)+(had?' The model that was loaded before has been unloaded.':'')});
+  const secs=aiSecs();aiClock(false,'failed after '+secs.toFixed(1)+' s');aiLog('FAILED at step '+step+': '+aiMsg(e));$('#aiset').open=true;
+  aiSet('error',{title:'Could not load '+file.name,st:step===1?['fail','pending','pending']:['done','fail','pending'],msg:aiExplain(e,file)+(had?' The model that was loaded before has been unloaded.':'')});
  }
  AI.busy=false;aiButtons();aiKV();
 }
@@ -150,7 +150,7 @@ async function aiUnload(){
  try{await AI.wl.exit()}catch(e){aiLog('exit() reported: '+aiMsg(e))}
  AI.wl=null;AI.info=null;AI.meta=null;AI.busy=false;AI.abort=null;
  aiClock(false,'');aiLog('Model unloaded, memory released');
- aiSet('idle',{title:'No model in memory',st:aiIdleSt(),msg:'Unloaded '+name+'. Its memory (about '+mb+' MB) was released. The engine stays loaded in this tab, so loading a model again skips step 1. Your Input and Output text were not touched. Reload brings the same file back.'});
+ aiSet('idle',{title:'No model in memory',st:aiIdleSt(),msg:'Unloaded '+name+'. Its memory (about '+mb+' MB) was released. Your Input and Output text were not touched. Reload brings the same file back.'});
  aiButtons();aiKV();
 }
 
@@ -163,7 +163,7 @@ function aiClean(s,input){
 const aiBusy=()=>AI.busy&&AI.state==='busy';
 const aiPipeOn=()=>typeof pipeOn!=='undefined'&&pipeOn&&PIPE.length>0;
 function aiSpecNow(){const id=SLT(),v=id?LVL[id][+$('#'+id).value]:0,c={tab,tmode,nmode,dir,v,pk:$('#pk').value,text:$('#in').value},sp=aiSpec(c);sp.c=c;return sp}
-const aiKeyOf=sp=>JSON.stringify([sp.id,sp.c.v,sp.c.dir,$('#seed').value,$('#pq').checked,sp.c.text,$('#aitemp').value,$('#aiextra').value.trim(),AI.name]);
+const aiKeyOf=sp=>JSON.stringify([sp.id,sp.c.v,sp.c.dir,$('#seed').value,$('#pq').checked,sp.c.text,$('#aitemp').value,$('#aiextra').value.trim(),AI.name,FIXOPT.gram,FIXOPT.us]);
 /* called by run() in ui.js: returns the AI text to show instead of the local result, or null */
 function aiOverlay(){
  if(!AI.on||AI.view!=='ai')return null;
@@ -181,7 +181,7 @@ function aiSync(){
  document.querySelectorAll('#aiview button').forEach(b=>{const isAI=b.dataset.v==='ai',on=(AI.view==='ai')===isAI;b.disabled=isAI&&!hit&&!aiBusy();b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))});
  $('#aiapply').textContent=paused?'Paused: the Pipeline is ON. AI works on one setting at a time, so turn the pipeline off to use it.'
   :!sp.ok?'AI here: '+sp.why
-  :!r?'AI will '+sp.what+'. Load a model first (Model & settings). The local result stays live meanwhile.'
+  :!r?'AI will '+sp.what+'. Load a model first (Load .gguf). The local result stays live meanwhile.'
   :'Run AI will '+sp.what+'.'+(hit?' This exact setting already has an AI result: switch with Local / AI above the Output.':'');
 }
 async function aiRun(){
@@ -203,7 +203,7 @@ async function aiRun(){
  const room=ctx-pt-8;let maxTok=Math.ceil(sp.outWords*Math.max(1.2,btok/Math.max(1,wc(base)))*1.3)+40;
  if(pt>ctx-32||room<16){
   AI.busy=false;AI.abort=null;aiClock(false,'');aiLog('Refused: prompt about '+pt+' tokens, context '+ctx);aiButtons();
-  aiSet('ready',{msg:'The text is too long for the context: about '+pt+' tokens ('+how+') against a context of '+ctx+'. Shorten the text, or choose a larger Context in Model & settings and press Reload.'});return}
+  aiSet('ready',{msg:'The text is too long for the context: about '+pt+' tokens ('+how+') against a context of '+ctx+'. Shorten the text, or choose a larger Context under Settings and details and press Reload.'});return}
  if(maxTok>room){aiLog('Length limit lowered from '+maxTok+' to '+room+' tokens to fit the context');maxTok=room}
  AI.view='ai';aiSync();$('#out').textContent='';
  aiSet('busy',{msg:'Reading your text (about '+pt+' tokens, '+how+')... the first word can take a few seconds.'});
@@ -248,10 +248,13 @@ const aiStaleHint=()=>{if(aiReady())$('#aihint').textContent='Context and WebGPU
 $('#aictx').addEventListener('change',aiStaleHint);
 $('#aigpu').addEventListener('change',aiStaleHint);
 $('#aiextra').addEventListener('input',()=>run(1));
-function aiDrawer(open){$('#aidrawer').hidden=!open;$('#aitoggle').setAttribute('aria-expanded',String(open))}
-$('#aitoggle').onclick=()=>aiDrawer($('#aidrawer').hidden);
+/* the i window: info only (first-step setup help). Settings, status details and the log live in the card. */
+const aiDlg=$('#aidlg');
+function aiInfo(open){if(open){if(!aiDlg.open){if(aiDlg.showModal)aiDlg.showModal();else aiDlg.setAttribute('open','')}}else if(aiDlg.open){if(aiDlg.close)aiDlg.close();else aiDlg.removeAttribute('open')}}
+$('#aiinfo').onclick=()=>aiInfo(true);$('#aidlgx').onclick=()=>aiInfo(false);
+aiDlg.addEventListener('click',e=>{if(e.target===aiDlg)aiInfo(false)});
 $('#aion').addEventListener('change',()=>{AI.on=$('#aion').checked;sv('aion',AI.on?'1':'0');
- if(!AI.on){if(AI.abort)AI.abort.abort();AI.view='local'}else if(!aiReady()&&!AI.busy)aiDrawer(true);run(1)});
+ if(!AI.on){if(AI.abort)AI.abort.abort();AI.view='local'}run(1)});
 document.querySelectorAll('#aiview button').forEach(b=>b.onclick=()=>{if(b.disabled)return;AI.view=b.dataset.v;run(1)});
 $('#aiload').onclick=()=>$('#aifl').click();
 $('#aifl').onchange=e=>{aiLoad(e.target.files[0]);e.target.value=''};
@@ -271,6 +274,6 @@ $('#aieng').addEventListener('change',aiEngUi);$('#aiengv').addEventListener('in
 {const e=lv('aieng'),v=lv('aiengv');if(e==='cdn'||e==='local')$('#aieng').value=e;$('#aiengv').value=v||ENGINE.ver;$('#aiengv').hidden=$('#aieng').value!=='cdn'}
 
 aiFill();aiKV();
-aiSet('idle',{title:'No model in memory',st:aiIdleSt(),msg:'Nothing is loaded or downloaded yet. Suggested first model: LFM2.5-350M-Q4_K_M.gguf (229 MB), see Which model? below. Pick the file with Load .gguf, or drop it on this panel.'});
-if(lv('aion')==='1'){AI.on=true;$('#aion').checked=true;aiDrawer(true)}
+aiSet('idle',{title:'No model in memory',st:aiIdleSt(),msg:'Nothing is loaded or downloaded yet. Press Load .gguf and pick a model file, or drop it on this panel. Click i for which model to get (suggested: LFM2.5-350M-Q4_K_M, 229 MB).'});
+if(lv('aion')==='1'){AI.on=true;$('#aion').checked=true}
 aiButtons();

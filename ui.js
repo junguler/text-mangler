@@ -10,17 +10,18 @@ const S={
   "Our neighbors adopted a small puppy last weekend, and now the whole street is awake at six every morning. The dog loves chasing leaves, stealing socks, and barking at the mailman. Honestly, nobody can stay angry at him for very long.",
   "The train to the coast leaves at nine, so we should arrive at the station by half past eight. Bring a jacket because the wind near the water is surprisingly cold, even in summer. We can have lunch at the little fish restaurant by the pier.",
   "Learning a new language takes time, but practicing a little every day makes a huge difference. Listen to music, read short stories, and try to speak with native speakers whenever you can."],
- tfix:["I recieved your mesage yestarday and I definately plan to atend the meeting tommorow. Please let me know if ther is anything els I should prepare befor then.",
-  "Teh weather was beutiful this morning, so we decded to take a long walk thorugh the park. Evrybody seemed happy, and the childern were playng near the fontain.",
-  "Our compnay is launching a new prodcut next month, and we beleive it will realy change the way peple work. The team has been workng hard to finsh everyting on time.",
-  "Can you please sned me the adress of the restaraunt? I dont want to be late agian, and I cant find it on the mapp."],
+ tfix:["i recieved your mesage yestarday and i definately plan to atend the meeting tommorow. Their is a agenda on the board, so please let me know if ther is anything els i should prepare befor then.",
+  "Teh weather was beutiful this morning, so we decded to take a long walk thorugh the park. Your going to love it, and its a great way to start the day. Evrybody seemed happy, and the childern were playng near the fontain.",
+  "She dont like to wake up early, but she go to work every day anyway. I would of called you, but my phone was dead. We was tired after the the long trip, so we went home and had a early night.",
+  "Our compnay is launching a new prodcut next month, and we beleive it will realy change the way peple work. The team has been workng hard to finsh everyting on time. It was an great effort, and its effect on the customers will be big.",
+  "Can you please sned me the adress of the restaraunt? I dont want to be late agian, and I cant find it on the mapp. I have never went there befor, so thankyou for helping me out."],
  pers:["Hello my friend, I am very happy to see you today. The weather is great, and I think we should go for a walk by the sea. After that, we can eat some food and talk about our plans.",
   "Yesterday I went to the market because I needed some bread and a little money for the bus. The man at the shop was really nice, and he told me that the best food in town is at the old house on the hill.",
   "My dog is really big, and he loves to drink water from the lake. Every morning my mother says that he is a very good boy, but he never listens to anyone.",
   "Wow, this is a very good idea! You are right that we need a better plan, and I will tell the boss about it tomorrow. Please do not forget to buy the car insurance."]
 };
 S.tclean=["i think  the the meeting is at noon ,but i'm not sure.we should check with the team  before we leave.  maybe i can call them tomorrow","hello everyone ,thanks for coming.please remember to bring your laptop  and your your notes. the schedule is on the board ,and i will send the slides later","we went to the park yesterday.it was sunny and and warm ,so we stayed for hours.  i had a great time"];
-const NOTE={size:'Cuts or pads the text by this % of its length. Enlarging only pads the wording; it adds no new facts.',tadd:'% of the words that get a typo. Changed words are highlighted.',tfix:'Fixes misspelled words with the built-in dictionary. Names, ALL-CAPS words, URLs and numbers are left alone. Changes are highlighted.',pers:'Rewrites the text in a voice. Lower strength gives a lighter touch.',tclean:'Fixes spacing, repeated words, a lowercase "i" and missing capitals. It does not touch spelling.',tools:'One-click text transforms. Use Reroll to change the Zalgo effect.',tone_formal:'Expands contractions and slang and swaps plain words for formal ones.',tone_casual:'Adds contractions, slang and chat shortcuts.',tone_simple:'Swaps fancy words for plain ones and splits long sentences.'};
+const NOTE={size:'Cuts or pads the text by this % of its length. Enlarging only pads the wording; it adds no new facts.',tadd:'% of the words that get a typo. Changed words are highlighted.',tfix:'Fixes misspelled words with the built-in dictionary, plus common grammar slips in American English: their/there, your/you\'re, its/it\'s, would of, a/an, verb agreement, repeated words, capitals and spacing. Names, ALL-CAPS words, URLs and numbers are left alone. Changes are highlighted.',pers:'Rewrites the text in a voice. Lower strength gives a lighter touch.',tclean:'Fixes spacing, repeated words, a lowercase "i" and missing capitals. It does not touch spelling.',tools:'One-click text transforms. Use Reroll to change the Zalgo effect.',tone_formal:'Expands contractions and slang and swaps plain words for formal ones.',tone_casual:'Adds contractions, slang and chat shortcuts.',tone_simple:'Swaps fancy words for plain ones and splits long sentences.'};
 let tab='size',dir=-1,tmode='add',nmode='formal',plain='',timer,last='',dfail=false;
 const isSample=v=>!v.trim()||Object.values(S).some(a=>a.includes(v));
 const pickS=()=>last=pick(S[tab==='tadd'&&tmode!=='add'?(tmode==='fix'?'tfix':'tclean'):tab==='tone'?'size':tab==='tools'?'pers':tab].filter(x=>x!==last),Math.random);
@@ -46,10 +47,11 @@ function run(keep){
  const t=$('#in').value,r=mk($('#seed').value),q=$('#pq').checked,id=SLT();let res,info='',v=0;
  if(id){const e=$('#'+id);v=LVL[id][e.value];fill(e);$('#'+id+'v').textContent=v+'%'}
  $('#trow').style.display=tab==='tadd'&&tmode!=='add'?'none':'';
+ $('#frow').style.display=tab==='tadd'&&tmode==='fix'?'':'none';
  document.querySelectorAll('.note').forEach(e=>{let k=e.parentElement.dataset.t;if(!k)return;if(k=='tadd'&&tmode!='add')k=tmode=='fix'?'tfix':'tclean';if(k=='tone')k='tone_'+nmode;if(k=='tfix'&&dfail)return;e.textContent=(NOTE[k]||'')+(['tfix','tclean','tools'].includes(k)?'':' Scroll the mouse wheel over the slider to adjust. Percentages that would not change the result are skipped, and the step size adapts to the text length.')});
  if(typeof aiBusy=='function'&&aiBusy()){aiSync();return}
  if(tab=='size'){const z=dir*v;res=size(t,z,r,q);if(z)info=` | asked ${z>0?'+':''}${z}%, got ${res.ach>0?'+':''}${res.ach}%${res.used&&res.used.length?` | used: ${res.used.join(', ')}`:''}`}
- else if(tab=='tadd'){if(tmode=='clean'){res=cleanup(t,q);info=` | ${res.n} fixes`}else if(tmode=='fix'){res=typoFix(t,q);info=res.wait?' | dictionary loading...':` | ${res.n} words fixed`}else{res=typoAdd(t,v,r,q);info=` | ${res.n} typos added`}}
+ else if(tab=='tadd'){if(tmode=='clean'){res=cleanup(t,q);info=` | ${res.n} fixes`}else if(tmode=='fix'){res=typoFix(t,q);info=res.wait?' | dictionary loading...':` | ${res.n} fixes`}else{res=typoAdd(t,v,r,q);info=` | ${res.n} typos added`}}
  else if(tab=='tone'){res=tone(t,v,nmode,r,q);info=` | ${nmode}`}else if(tab=='tools'){res=useTool($('#tk').value,t,r,q)}else res=pers(t,$('#pk').value,v,r,q);
  if(pipeOn&&PIPE.length){res={segs:[[runPipe(t,q),0]]};info=` | pipeline: ${PIPE.length} step${PIPE.length>1?'s':''}`}
  plain=res.segs.map(s=>s[0]).join('');
@@ -91,6 +93,9 @@ $('#pc').onclick=()=>{PIPE=[];pipeOn=false;drawChips();run(1)};
 $('#pr').onclick=()=>{pipeOn=!pipeOn;drawChips();run(1)};
 $('#pp').onchange=e=>{const p=PRE[e.target.value];if(p){PIPE=p.map(s=>({...s}));pipeOn=true;drawChips();run(1)}e.target.value=''};
 ['#df','#tk'].forEach(s=>$(s).addEventListener('change',go));
+{if(lv('fg')==='0'){FIXOPT.gram=false;$('#fg').checked=false}if(lv('fu')==='0'){FIXOPT.us=false;$('#fu').checked=false}
+ $('#fg').addEventListener('change',()=>{FIXOPT.gram=$('#fg').checked;sv('fg',FIXOPT.gram?'1':'0');run()});
+ $('#fu').addEventListener('change',()=>{FIXOPT.us=$('#fu').checked;sv('fu',FIXOPT.us?'1':'0');run()})}
 document.querySelectorAll('#nseg button').forEach(b=>b.onclick=()=>{nmode=b.dataset.m;document.querySelectorAll('#nseg button').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',String(on))});run()});
 const MAXLOAD=2*1024*1024,TEXTRE=/\.(txt|md|csv|log|srt|json|html?)$/i;const loadText=f=>{if(!f)return;if(f.size>MAXLOAD){$('#stat').textContent='File too large (max 2 MB): '+f.name;return}if(f.type&&!f.type.startsWith('text/')&&!TEXTRE.test(f.name)){$('#stat').textContent='Not a text file: '+f.name;return}f.text().then(v=>setIn(v));$('#fl').value=''};
 $('#ld').onclick=()=>$('#fl').click();$('#fl').onchange=e=>loadText(e.target.files[0]);
